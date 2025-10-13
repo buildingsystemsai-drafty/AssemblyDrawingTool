@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Drawing Archive Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .upload-box {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-box:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .upload-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .upload-box p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .file-label:hover {
+            transform: scale(1.05);
+        }
+
+        .file-list {
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .file-item {
+            background: white;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 0.85em;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .remove-file {
+            color: #dc3545;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+
+        .remove-file:hover {
+            background: #ffe0e0;
+        }
+
+        .parse-button {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .parse-button:hover {
+            transform: scale(1.05);
+        }
+
+        .parse-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .results {
+            margin-top: 40px;
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .result-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+
+        .result-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .result-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .result-label {
+            font-weight: bold;
+            color: #764ba2;
+            display: inline-block;
+            min-width: 150px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ Shop Drawing Archive Tool</h1>
+        <p class="subtitle">Upload and parse roofing documents with ease</p>
+
+        <form id="uploadForm">
+            <div class="upload-grid">
+                <!-- Scope of Work -->
+                <div class="upload-box" onclick="document.getElementById('scope').click()">
+                    <h3>📋 Scope of Work</h3>
+                    <p>Upload scope documents</p>
+                    <label class="file-label">Choose Files</label>
+                    <input type="file" id="scope" name="scope" class="file-input" accept=".pdf" multiple>
+                    <div class="file-list" id="scope-list"></div>
+                </div>
+
+                <!-- Specification -->
+                <div class="upload-box" onclick="document.getElementById('spec').click()">
+                    <h3>📄 Specification</h3>
+                    <p>Upload spec documents</p>
+                    <label class="file-label">Choose Files</label>
+                    <input type="file" id="spec" name="spec" class="file-input" accept=".pdf" multiple>
+                    <div class="file-list" id="spec-list"></div>
+                </div>
+
+                <!-- Drawing -->
+                <div class="upload-box" onclick="document.getElementById('drawing').click()">
+                    <h3>🏗️ Drawing</h3>
+                    <p>Upload architectural drawings</p>
+                    <label class="file-label">Choose Files</label>
+                    <input type="file" id="drawing" name="drawing" class="file-input" accept=".pdf" multiple>
+                    <div class="file-list" id="drawing-list"></div>
+                </div>
+
+                <!-- Assembly Letter -->
+                <div class="upload-box" onclick="document.getElementById('assembly').click()">
+                    <h3>✉️ Assembly Letter</h3>
+                    <p>Upload assembly letters</p>
+                    <label class="file-label">Choose Files</label>
+                    <input type="file" id="assembly" name="assembly" class="file-input" accept=".pdf" multiple>
+                    <div class="file-list" id="assembly-list"></div>
+                </div>
+            </div>
+
+            <button type="submit" class="parse-button">Parse Documents</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Parsing documents...</p>
+        </div>
+
+        <div class="results" id="results"></div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
