@@ -213,14 +213,432 @@ function displayResults(data) {
         html += renderDrawingResults(data.drawing);
     }
     
+    if (data.spec) {
+        html += renderSpecResults(data.spec);
+    }
+    
+    if (data.assembly) {
+        html += renderAssemblyResults(data.assembly);
+    }
+    
     resultsDiv.innerHTML = html;
     resultsDiv.classList.add('show');
     resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============================================================================
+// SPECIFICATION RESULTS
+// ============================================================================
+
+function renderSpecResults(specs) {
+    if (!specs || specs.length === 0) {
+        return '';
+    }
+    
+    const stats = calculateSpecStats(specs);
+    
+    let html = `
+        <div class="toolbar">
+            <div class="toolbar-top">
+                <h2>📄 Specification Documents</h2>
+                <div class="toolbar-actions">
+                    <button class="toolbar-btn ${currentView === 'table' ? 'active' : ''}" onclick="switchView('table')">
+                        📊 Table
+                    </button>
+                    <button class="toolbar-btn ${currentView === 'cards' ? 'active' : ''}" onclick="switchView('cards')">
+                        🎴 Cards
+                    </button>
+                    <button class="toolbar-btn" onclick="exportSpecToCSV()">
+                        📥 Export
+                    </button>
+                </div>
+            </div>
+            
+            <input type="text" class="search-bar" placeholder="🔍 Search specifications..." oninput="filterSpecData(this.value)">
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">${specs.length}</div>
+                <div class="stat-label">Specifications</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-value">${stats.totalManufacturers}</div>
+                <div class="stat-label">Manufacturers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.totalProducts}</div>
+                <div class="stat-label">Products</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-value">${stats.totalShopDrawingReqs}</div>
+                <div class="stat-label">Shop Drawing Requirements</div>
+            </div>
+        </div>
+    `;
+    
+    html += currentView === 'table' ? renderSpecTableView(specs) : renderSpecCardsView(specs);
+    
+    return html;
+}
+
+function calculateSpecStats(specs) {
+    let totalManufacturers = 0;
+    let totalProducts = 0;
+    let totalShopDrawingReqs = 0;
+    
+    specs.forEach(spec => {
+        if (!spec.error) {
+            totalManufacturers += spec.manufacturers ? spec.manufacturers.length : 0;
+            totalProducts += spec.products ? spec.products.length : 0;
+            totalShopDrawingReqs += spec.shop_drawing_requirements ? spec.shop_drawing_requirements.length : 0;
+        }
+    });
+    
+    return {
+        totalManufacturers,
+        totalProducts,
+        totalShopDrawingReqs
+    };
+}
+
+function renderSpecTableView(specs) {
+    let html = `
+        <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #1e2a3a; color: white;">
+                        <th style="padding: 1rem; text-align: left; font-weight: 600; border-radius: 8px 0 0 0;">File</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Section</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Title</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600;">👨‍🏭 Manufacturers</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600;">🛠️ Products</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600;">🔍 Shop Drawing Reqs</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600; border-radius: 0 8px 0 0;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="specTableBody">
+    `;
+    
+    specs.forEach((spec, specIdx) => {
+        if (spec.error) {
+            html += `
+                <tr class="spec-row" data-file="${spec.filename}" style="background: #fff1f0;">
+                    <td style="padding: 0.75rem; color: #e53e3e; font-weight: 500; font-size: 0.875rem;">${spec.filename}</td>
+                    <td colspan="6" style="padding: 0.75rem; color: #e53e3e;">Error: ${spec.error}</td>
+                </tr>
+            `;
+        } else {
+            const rowClass = specIdx % 2 === 0 ? 'background: #f7fafc;' : 'background: white;';
+            
+            const section = spec.spec_section || spec.section || '-';
+            const title = spec.spec_title || spec.title || '-';
+
+            html += `
+                <tr class="spec-row" data-file="${spec.filename}" data-section="${section}" style="${rowClass}">
+                    <td style="padding: 0.75rem; color: #2d3748; font-weight: 500; font-size: 0.875rem;">${spec.filename}</td>
+                    <td style="padding: 0.75rem; color: #4a5568; font-family: monospace; font-weight: 600;">${section}</td>
+                    <td style="padding: 0.75rem; color: #718096; font-size: 0.875rem;">${title}</td>
+                    <td style="padding: 0.75rem; text-align: center;">
+                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #c6f6d5; color: #22543d; border-radius: 12px; font-weight: 600; font-size: 0.875rem;">
+                            ${spec.manufacturers ? spec.manufacturers.length : 0}
+                        </span>
+                    </td>
+                    <td style="padding: 0.75rem; text-align: center;">
+                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #bee3f8; color: #2c5282; border-radius: 12px; font-weight: 600; font-size: 0.875rem;">
+                            ${spec.products ? spec.products.length : 0}
+                        </span>
+                    </td>
+                    <td style="padding: 0.75rem; text-align: center;">
+                        <span style="display: inline-block; padding: 0.25rem 0.75rem; background: #feebc8; color: #744210; border-radius: 12px; font-weight: 600; font-size: 0.875rem;">
+                            ${spec.shop_drawing_requirements ? spec.shop_drawing_requirements.length : 0}
+                        </span>
+                    </td>
+                    <td style="padding: 0.75rem; text-align: center;">
+                        <button onclick="viewSpecDetails('${specIdx}')" style="background: #4299e1; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.75rem;">
+                            View Details
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    return html;
+}
+
+function renderSpecCardsView(specs) {
+    let html = '<div class="cards-grid">';
+    
+    specs.forEach((spec, specIdx) => {
+        if (spec.error) {
+            html += `
+                <div class="spec-card error-card" data-file="${spec.filename}">
+                    <div class="card-header">
+                        <div class="card-title">${spec.filename}</div>
+                    </div>
+                    <div class="error-message">Error: ${spec.error}</div>
+                </div>
+            `;
+        } else {
+            const section = spec.spec_section || spec.section || 'Unknown';
+            const title = spec.spec_title || spec.title || 'Untitled';
+
+            html += `
+                <div class="spec-card" data-file="${spec.filename}" data-section="${section}">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">${spec.filename}</div>
+                            <div class="card-subtitle">${section} - ${title}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-data">
+                        <div class="data-row">
+                            <span class="data-label">👨‍🏭 Manufacturers</span>
+                            <span class="data-badge badge-high">${spec.manufacturers ? spec.manufacturers.length : 0}</span>
+                        </div>
+                        
+                        <div class="data-row">
+                            <span class="data-label">🛠️ Products</span>
+                            <span class="data-badge badge-medium">${spec.products ? spec.products.length : 0}</span>
+                        </div>
+                        
+                        <div class="data-row">
+                            <span class="data-label">🔍 Shop Drawing Requirements</span>
+                            <span class="data-badge badge-low">${spec.shop_drawing_requirements ? spec.shop_drawing_requirements.length : 0}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions">
+                        <button class="card-action-btn btn-view" onclick="viewSpecDetails('${specIdx}')">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+window.viewSpecDetails = function(specIdx) {
+    const spec = currentData.spec[specIdx];
+    
+    if (!spec) {
+        showNotification('Specification data not found', 'error');
+        return;
+    }
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    
+    let shopDrawingsHtml = '';
+    if (spec.shop_drawing_requirements && spec.shop_drawing_requirements.length > 0) {
+        shopDrawingsHtml = `
+            <div class="detail-section">
+                <h3>Shop Drawing Requirements</h3>
+                <ul class="detail-list">
+                    ${spec.shop_drawing_requirements.map(req => `
+                        <li>${req}</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    } else {
+        shopDrawingsHtml = `
+            <div class="detail-section">
+                <h3>Shop Drawing Requirements</h3>
+                <p class="empty-notice">No shop drawing requirements found</p>
+            </div>
+        `;
+    }
+    
+    let manufacturersHtml = '';
+    if (spec.manufacturers && spec.manufacturers.length > 0) {
+        manufacturersHtml = `
+            <div class="detail-section">
+                <h3>Manufacturers</h3>
+                <ul class="detail-list">
+                    ${spec.manufacturers.map(mfr => `
+                        <li>${mfr}</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    } else {
+        manufacturersHtml = `
+            <div class="detail-section">
+                <h3>Manufacturers</h3>
+                <p class="empty-notice">No manufacturers found</p>
+            </div>
+        `;
+    }
+    
+    let productsHtml = '';
+    if (spec.products && spec.products.length > 0) {
+        productsHtml = `
+            <div class="detail-section">
+                <h3>Products</h3>
+                <ul class="detail-list">
+                    ${spec.products.map(product => `
+                        <li>${product}</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    } else {
+        productsHtml = `
+            <div class="detail-section">
+                <h3>Products</h3>
+                <p class="empty-notice">No products found</p>
+            </div>
+        `;
+    }
+    
+    // Put it all together
+    modalContent.innerHTML = `
+        <div class="modal-header">
+            <h2>${spec.filename}</h2>
+            <button class="modal-close" onclick="closeDetailsModal()">✕ Close</button>
+        </div>
+        
+        <div class="spec-details-overview">
+            <div class="detail-item">
+                <span class="detail-label">Section:</span>
+                <span class="detail-value">${spec.spec_section || spec.section || 'Unknown'}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Title:</span>
+                <span class="detail-value">${spec.spec_title || spec.title || 'Unknown'}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Category:</span>
+                <span class="detail-value">${spec.section_category || spec.category || 'Unknown'}</span>
+            </div>
+        </div>
+        
+        <div class="details-container">
+            ${shopDrawingsHtml}
+            ${manufacturersHtml}
+            ${productsHtml}
+        </div>
+    `;
+    
+    // Show the modal
+    showDetailsModal(modalContent);
+};
+
+window.filterSpecData = function(searchTerm) {
+    const rows = document.querySelectorAll('.spec-row');
+    const cards = document.querySelectorAll('.spec-card');
+    const term = searchTerm.toLowerCase();
+    
+    // Filter table rows
+    rows.forEach(row => {
+        const file = (row.dataset.file || '').toLowerCase();
+        const section = (row.dataset.section || '').toLowerCase();
+        const text = row.textContent.toLowerCase();
+        
+        if (file.includes(term) || section.includes(term) || text.includes(term)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Filter cards
+    cards.forEach(card => {
+        const file = (card.dataset.file || '').toLowerCase();
+        const section = (card.dataset.section || '').toLowerCase();
+        const text = card.textContent.toLowerCase();
+        
+        if (file.includes(term) || section.includes(term) || text.includes(term)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+};
+
+window.exportSpecToCSV = function() {
+    if (!currentData || !currentData.spec) {
+        showNotification('No specification data to export', 'error');
+        return;
+    }
+    
+    const specs = currentData.spec;
+    
+    let csv = 'Filename,Section,Title,Manufacturers Count,Products Count,Shop Drawing Requirements Count,Shop Drawing Requirements\n';
+    
+    specs.forEach(spec => {
+        if (!spec.error) {
+            const manufacturersCount = spec.manufacturers ? spec.manufacturers.length : 0;
+            const productsCount = spec.products ? spec.products.length : 0;
+            const reqsCount = spec.shop_drawing_requirements ? spec.shop_drawing_requirements.length : 0;
+            const reqsList = spec.shop_drawing_requirements ? spec.shop_drawing_requirements.map(r => r.replace(/,/g, ';')).join(' | ') : '';
+            
+            csv += `"${spec.filename}",`;
+            csv += `"${spec.section || '-'}",`;
+            csv += `"${(spec.title || '-').replace(/"/g, '""')}",`;
+            csv += `${manufacturersCount},`;
+            csv += `${productsCount},`;
+            csv += `${reqsCount},`;
+            csv += `"${reqsList.replace(/"/g, '""')}"\n`;
+        }
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `spec_analysis_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    showNotification('CSV exported successfully!', 'success');
+};
+
+// ============================================================================
 // DRAWING RESULTS
 // ============================================================================
+
+function calculateStats(drawings) {
+    let totalSheets = 0;
+    let totalDrains = 0;
+    let totalScuppers = 0;
+    let totalRTUs = 0;
+    let totalPenetrations = 0;
+
+    drawings.forEach(drawing => {
+        if (drawing.roof_plans) {
+            totalSheets += drawing.roof_plans.length;
+            drawing.roof_plans.forEach(plan => {
+                totalDrains += extractCount(plan.drains);
+                totalScuppers += extractCount(plan.scuppers);
+                totalRTUs += extractCount(plan.rtus_curbs);
+                totalPenetrations += extractCount(plan.penetrations);
+            });
+        }
+    });
+
+    return {
+        totalSheets,
+        totalDrains,
+        totalScuppers,
+        totalRTUs,
+        totalPenetrations
+    };
+}
 
 function renderDrawingResults(drawings) {
     const drawingArray = Array.isArray(drawings) ? drawings : [drawings];
@@ -279,427 +697,125 @@ function renderDrawingResults(drawings) {
     `;
 }
 
-// ============================================================================
-// TABLE VIEW
-// ============================================================================
-
 function renderTableView(drawings) {
     let html = `
         <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #1e2a3a; color: white;">
-                        <th style="padding: 1rem; text-align: left; font-weight: 600; border-radius: 8px 0 0 0;">File</th>
-                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Sheet</th>
-                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Type</th>
-                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Status</th>
-                        <th style="padding: 1rem; text-align: center; font-weight: 600;">💧 Drains</th>
-                        <th style="padding: 1rem; text-align: center; font-weight: 600;">🌊 Scuppers</th>
-                        <th style="padding: 1rem; text-align: center; font-weight: 600;">⚡ RTUs</th>
-                        <th style="padding: 1rem; text-align: center; font-weight: 600;">🔧 Pens</th>
-                        <th style="padding: 1rem; text-align: center; font-weight: 600;">📐 Scale</th>
-                        <th style="padding: 1rem; text-align: center; font-weight: 600; border-radius: 0 8px 0 0;">Actions</th>
+                        <th style="padding: 1rem; text-align: left;">File</th>
+                        <th style="padding: 1rem; text-align: center;">Drains</th>
+                        <th style="padding: 1rem; text-align: center;">Scuppers</th>
+                        <th style="padding: 1rem; text-align: center;">RTUs</th>
+                        <th style="padding: 1rem; text-align: center;">Penetrations</th>
                     </tr>
                 </thead>
-                <tbody id="dataTableBody">
+                <tbody>
     `;
-    
-    drawings.forEach((drawing, drawingIdx) => {
-        if (drawing.roof_plans && drawing.roof_plans.length > 0) {
-            drawing.roof_plans.forEach((plan, planIdx) => {
-                const sheetId = `${drawingIdx}-${planIdx}`;
-                const workflowState = getWorkflowState(sheetId);
-                const rowClass = drawingIdx % 2 === 0 ? 'background: #f7fafc;' : 'background: white;';
-                
-                html += renderTableRow(drawing, plan, sheetId, workflowState, rowClass);
-            });
-        }
+
+    drawings.forEach((drawing, idx) => {
+        const rowClass = idx % 2 === 0 ? 'background: #f7fafc;' : 'background: white;';
+        const drains = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.drains), 0) : 0;
+        const scuppers = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.scuppers), 0) : 0;
+        const rtus = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.rtus_curbs), 0) : 0;
+        const penetrations = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.penetrations), 0) : 0;
+
+        html += `
+            <tr style="${rowClass}">
+                <td style="padding: 0.75rem;">${drawing.filename || 'Unknown'}</td>
+                <td style="padding: 0.75rem; text-align: center;">${drains}</td>
+                <td style="padding: 0.75rem; text-align: center;">${scuppers}</td>
+                <td style="padding: 0.75rem; text-align: center;">${rtus}</td>
+                <td style="padding: 0.75rem; text-align: center;">${penetrations}</td>
+            </tr>
+        `;
     });
-    
+
     html += `
                 </tbody>
             </table>
         </div>
     `;
-    
     return html;
 }
 
-function renderTableRow(drawing, plan, sheetId, workflowState, rowClass) {
-    const drainCount = extractCount(plan.drains);
-    const scupperCount = extractCount(plan.scuppers);
-    const rtuCount = extractCount(plan.rtus_curbs);
-    const penCount = extractCount(plan.penetrations);
-    
-    const drainConfidence = getConfidenceLevel(plan.drains);
-    const scupperConfidence = getConfidenceLevel(plan.scuppers);
-    const rtuConfidence = getConfidenceLevel(plan.rtus_curbs);
-    const penConfidence = getConfidenceLevel(plan.penetrations);
-    
-    const workflowBadge = {
-        'detected': '<span style="background: #feebc8; color: #744210; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">🟡 Detected</span>',
-        'reviewing': '<span style="background: #bee3f8; color: #2c5282; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">🔵 Reviewing</span>',
-        'verified': '<span style="background: #c6f6d5; color: #22543d; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">🟢 Verified</span>',
-        'approved': '<span style="background: #9ae6b4; color: #22543d; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">✅ Approved</span>'
-    };
-    
-    return `
-        <tr class="data-row" data-sheet="${plan.detail_number}" data-file="${drawing.filename}" style="${rowClass}">
-            <td style="padding: 0.75rem; color: #2d3748; font-weight: 500; font-size: 0.875rem;">${drawing.filename}</td>
-            <td style="padding: 0.75rem; color: #4a5568; font-family: monospace; font-weight: 600;">${plan.detail_number || '-'}</td>
-            <td style="padding: 0.75rem; color: #718096; font-size: 0.875rem;">${plan.type || '-'}</td>
-            <td style="padding: 0.75rem; text-align: center;">${workflowBadge[workflowState]}</td>
-            ${renderTableCell(drainCount, drainConfidence)}
-            ${renderTableCell(scupperCount, scupperConfidence)}
-            ${renderTableCell(rtuCount, rtuConfidence)}
-            ${renderTableCell(penCount, penConfidence)}
-            <td style="padding: 0.75rem; text-align: center; color: #4a5568; font-size: 0.875rem;">${plan.scale !== 'Not specified' ? plan.scale : '-'}</td>
-            <td style="padding: 0.75rem; text-align: center;">
-                ${renderWorkflowButton(sheetId, workflowState)}
-            </td>
-        </tr>
-    `;
-}
-
-function renderTableCell(count, confidence) {
-    if (count === 0) {
-        return '<td style="padding: 0.75rem; text-align: center; color: #cbd5e0;">-</td>';
-    }
-    
-    const colors = {
-        high: { bg: '#c6f6d5', text: '#22543d' },
-        medium: { bg: '#bee3f8', text: '#2c5282' },
-        low: { bg: '#feebc8', text: '#744210' },
-        none: { bg: '#f7fafc', text: '#a0aec0' }
-    };
-    
-    const color = colors[confidence] || colors.none;
-    
-    return `
-        <td style="padding: 0.75rem; text-align: center;">
-            <span style="display: inline-block; padding: 0.25rem 0.75rem; background: ${color.bg}; color: ${color.text}; border-radius: 12px; font-weight: 600; font-size: 0.875rem;">
-                ${count}
-            </span>
-        </td>
-    `;
-}
-
-function renderWorkflowButton(sheetId, state) {
-    const buttons = {
-        'detected': `<button onclick="updateWorkflow('${sheetId}', 'reviewing')" style="background: #bee3f8; color: #2c5282; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.75rem;">👀 Review</button>`,
-        'reviewing': `<button onclick="updateWorkflow('${sheetId}', 'verified')" style="background: #c6f6d5; color: #22543d; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.75rem;">✓ Verify</button>`,
-        'verified': `<button onclick="updateWorkflow('${sheetId}', 'approved')" style="background: #9ae6b4; color: #22543d; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.75rem;">✓✓ Approve</button>`,
-        'approved': `<span style="color: #48bb78; font-weight: 600;">✓✓✓</span>`
-    };
-    
-    return buttons[state];
-}
-
-// ============================================================================
-// CARDS VIEW
-// ============================================================================
-
 function renderCardsView(drawings) {
     let html = '<div class="cards-grid">';
-    
-    drawings.forEach((drawing, drawingIdx) => {
-        if (drawing.roof_plans && drawing.roof_plans.length > 0) {
-            drawing.roof_plans.forEach((plan, planIdx) => {
-                const sheetId = `${drawingIdx}-${planIdx}`;
-                const workflowState = getWorkflowState(sheetId);
-                
-                html += renderCard(drawing, plan, sheetId, workflowState);
-            });
-        }
+
+    drawings.forEach(drawing => {
+        const drains = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.drains), 0) : 0;
+        const scuppers = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.scuppers), 0) : 0;
+        const rtus = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.rtus_curbs), 0) : 0;
+        const penetrations = drawing.roof_plans ? drawing.roof_plans.reduce((sum, p) => sum + extractCount(p.penetrations), 0) : 0;
+
+        html += `
+            <div class="drawing-card">
+                <div class="card-header">
+                    <div class="card-title">${drawing.filename || 'Unknown'}</div>
+                </div>
+                <div class="card-data">
+                    <div class="data-row">
+                        <span class="data-label">Drains</span>
+                        <span class="data-value">${drains}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Scuppers</span>
+                        <span class="data-value">${scuppers}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">RTUs</span>
+                        <span class="data-value">${rtus}</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Penetrations</span>
+                        <span class="data-value">${penetrations}</span>
+                    </div>
+                </div>
+            </div>
+        `;
     });
-    
+
     html += '</div>';
     return html;
 }
 
-function renderCard(drawing, plan, sheetId, workflowState) {
-    const drainCount = extractCount(plan.drains);
-    const scupperCount = extractCount(plan.scuppers);
-    const rtuCount = extractCount(plan.rtus_curbs);
-    const penCount = extractCount(plan.penetrations);
-    
-    const drainConfidence = getConfidenceLevel(plan.drains);
-    const scupperConfidence = getConfidenceLevel(plan.scuppers);
-    const rtuConfidence = getConfidenceLevel(plan.rtus_curbs);
-    const penConfidence = getConfidenceLevel(plan.penetrations);
-    
-    const workflowClass = `workflow-${workflowState}`;
-    const workflowLabel = workflowState.charAt(0).toUpperCase() + workflowState.slice(1);
-    
-    return `
-        <div class="drawing-card" data-sheet="${plan.detail_number}" data-file="${drawing.filename}">
-            <div class="card-header">
-                <div>
-                    <div class="card-title">${drawing.filename}</div>
-                    <div class="card-title" style="color: #FF6B47; margin-top: 0.25rem;">Sheet: ${plan.detail_number || 'Unknown'}</div>
-                </div>
-            </div>
-            
-            <div class="workflow-badge ${workflowClass}">
-                ${workflowLabel}
-            </div>
-            
-            <div class="card-data">
-                ${plan.type ? `
-                    <div class="data-row">
-                        <span class="data-label">Type</span>
-                        <span class="data-value">${plan.type}</span>
-                    </div>
-                ` : ''}
-                
-                <div class="data-row">
-                    <span class="data-label">💧 Drains</span>
-                    ${drainCount > 0 
-                        ? `<span class="data-badge badge-${drainConfidence}">${drainCount}</span>`
-                        : `<span class="data-badge badge-none">-</span>`
-                    }
-                </div>
-                
-                <div class="data-row">
-                    <span class="data-label">🌊 Scuppers</span>
-                    ${scupperCount > 0 
-                        ? `<span class="data-badge badge-${scupperConfidence}">${scupperCount}</span>`
-                        : `<span class="data-badge badge-none">-</span>`
-                    }
-                </div>
-                
-                <div class="data-row">
-                    <span class="data-label">⚡ RTUs</span>
-                    ${rtuCount > 0 
-                        ? `<span class="data-badge badge-${rtuConfidence}">${rtuCount}</span>`
-                        : `<span class="data-badge badge-none">-</span>`
-                    }
-                </div>
-                
-                <div class="data-row">
-                    <span class="data-label">🔧 Penetrations</span>
-                    ${penCount > 0 
-                        ? `<span class="data-badge badge-${penConfidence}">${penCount}</span>`
-                        : `<span class="data-badge badge-none">-</span>`
-                    }
-                </div>
-                
-                ${plan.scale !== 'Not specified' ? `
-                    <div class="data-row">
-                        <span class="data-label">📐 Scale</span>
-                        <span class="data-value">${plan.scale}</span>
-                    </div>
-                ` : ''}
-            </div>
-            
-            <div class="card-actions">
-                ${workflowState === 'detected' ? `
-                    <button class="card-action-btn btn-verify" onclick="updateWorkflow('${sheetId}', 'reviewing')">
-                        👀 Review
-                    </button>
-                ` : ''}
-                
-                ${workflowState === 'reviewing' ? `
-                    <button class="card-action-btn btn-verify" onclick="updateWorkflow('${sheetId}', 'verified')">
-                        ✓ Verify
-                    </button>
-                ` : ''}
-                
-                ${workflowState === 'verified' ? `
-                    <button class="card-action-btn btn-approve" onclick="updateWorkflow('${sheetId}', 'approved')">
-                        ✓✓ Approve
-                    </button>
-                ` : ''}
-                
-                ${workflowState === 'approved' ? `
-                    <button class="card-action-btn" style="background: #9ae6b4; color: #22543d;">
-                        ✓✓✓ Approved
-                    </button>
-                ` : ''}
-            </div>
-        </div>
-    `;
+// ============================================================================
+// ASSEMBLY RESULTS
+// ============================================================================
+
+function renderAssemblyResults(assemblies) {
+    // Add your assembly rendering code here
+    return '';
 }
 
 // ============================================================================
-// WORKFLOW ACTIONS
+// MODAL FOR DETAILS
 // ============================================================================
 
-window.updateWorkflow = function(sheetId, newState) {
-    setWorkflowState(sheetId, newState);
-    showNotification(`Status updated to ${newState}`, 'success');
-}
-
-// ============================================================================
-// SEARCH/FILTER
-// ============================================================================
-
-window.filterData = function(searchTerm) {
-    const rows = document.querySelectorAll('.data-row');
-    const cards = document.querySelectorAll('.drawing-card');
-    const term = searchTerm.toLowerCase();
+function showDetailsModal(content) {
+    let modal = document.getElementById('detailsModal');
     
-    // Filter table rows
-    rows.forEach(row => {
-        const file = (row.dataset.file || '').toLowerCase();
-        const sheet = (row.dataset.sheet || '').toLowerCase();
-        const text = row.textContent.toLowerCase();
-        
-        if (file.includes(term) || sheet.includes(term) || text.includes(term)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-    
-    // Filter cards
-    cards.forEach(card => {
-        const file = (card.dataset.file || '').toLowerCase();
-        const sheet = (card.dataset.sheet || '').toLowerCase();
-        const text = card.textContent.toLowerCase();
-        
-        if (file.includes(term) || sheet.includes(term) || text.includes(term)) {
-            card.style.display = '';
-        } else {
-            card.style.display = 'none';
-        }
-    });
-}
-
-// ============================================================================
-// STATS & CHARTS
-// ============================================================================
-
-function calculateStats(drawings) {
-    let totalSheets = 0;
-    let totalDrains = 0;
-    let totalScuppers = 0;
-    let totalRTUs = 0;
-    let totalPenetrations = 0;
-    
-    drawings.forEach(drawing => {
-        if (drawing.roof_plans) {
-            drawing.roof_plans.forEach(plan => {
-                totalSheets++;
-                totalDrains += extractCount(plan.drains);
-                totalScuppers += extractCount(plan.scuppers);
-                totalRTUs += extractCount(plan.rtus_curbs);
-                totalPenetrations += extractCount(plan.penetrations);
-            });
-        }
-    });
-    
-    return {
-        totalSheets,
-        totalDrains,
-        totalScuppers,
-        totalRTUs,
-        totalPenetrations
-    };
-}
-
-window.showCharts = function() {
-    if (!currentData || !currentData.drawing) {
-        showNotification('No data available', 'error');
-        return;
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'detailsModal';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
     }
     
-    const modal = document.getElementById('chartsModal');
-    const content = document.getElementById('chartsContent');
-    
-    const stats = calculateStats(Array.isArray(currentData.drawing) ? currentData.drawing : [currentData.drawing]);
-    
-    content.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
-            <div style="background: #f7fafc; padding: 1.5rem; border-radius: 8px;">
-                <h3 style="margin-bottom: 1rem; color: #1e2a3a;">Element Totals</h3>
-                ${renderBarChart('Drains', stats.totalDrains, '#FF6B47')}
-                ${renderBarChart('Scuppers', stats.totalScuppers, '#4299e1')}
-                ${renderBarChart('RTUs', stats.totalRTUs, '#48bb78')}
-                ${renderBarChart('Penetrations', stats.totalPenetrations, '#f6ad55')}
-            </div>
-            
-            <div style="background: #f7fafc; padding: 1.5rem; border-radius: 8px;">
-                <h3 style="margin-bottom: 1rem; color: #1e2a3a;">Summary</h3>
-                <div style="line-height: 2; color: #2d3748;">
-                    <div><strong>Total Sheets:</strong> ${stats.totalSheets}</div>
-                    <div><strong>Total Elements:</strong> ${stats.totalDrains + stats.totalScuppers + stats.totalRTUs + stats.totalPenetrations}</div>
-                    <div><strong>Avg per Sheet:</strong> ${((stats.totalDrains + stats.totalScuppers + stats.totalRTUs + stats.totalPenetrations) / stats.totalSheets).toFixed(1)}</div>
-                </div>
-            </div>
-        </div>
-    `;
-    
+    modal.innerHTML = '';
+    modal.appendChild(content);
     modal.classList.add('show');
 }
 
-function renderBarChart(label, value, color) {
-    const maxWidth = 300;
-    const width = Math.min((value / 20) * maxWidth, maxWidth);
-    
-    return `
-        <div style="margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                <span style="font-weight: 600; color: #2d3748;">${label}</span>
-                <span style="font-weight: bold; color: ${color};">${value}</span>
-            </div>
-            <div style="background: #e2e8f0; border-radius: 4px; height: 20px;">
-                <div style="background: ${color}; height: 100%; width: ${width}px; border-radius: 4px; transition: width 0.3s;"></div>
-            </div>
-        </div>
-    `;
-}
-
-window.closeCharts = function() {
-    document.getElementById('chartsModal').classList.remove('show');
-}
-
-// ============================================================================
-// CSV EXPORT
-// ============================================================================
-
-window.exportToCSV = function() {
-    if (!currentData || !currentData.drawing) {
-        showNotification('No data to export', 'error');
-        return;
+window.closeDetailsModal = function() {
+    const modal = document.getElementById('detailsModal');
+    if (modal) {
+        modal.classList.remove('show');
     }
-    
-    const drawings = Array.isArray(currentData.drawing) ? currentData.drawing : [currentData.drawing];
-    
-    let csv = 'File,Sheet,Type,Workflow Status,Drains,Scuppers,RTUs,Penetrations,Scale\n';
-    
-    drawings.forEach((drawing, idx) => {
-        if (drawing.roof_plans) {
-            drawing.roof_plans.forEach((plan, pIdx) => {
-                const sheetId = `${idx}-${pIdx}`;
-                const workflow = getWorkflowState(sheetId);
-                
-                csv += `"${drawing.filename}",`;
-                csv += `"${plan.detail_number || '-'}",`;
-                csv += `"${plan.type || '-'}",`;
-                csv += `"${workflow}",`;
-                csv += `${extractCount(plan.drains)},`;
-                csv += `${extractCount(plan.scuppers)},`;
-                csv += `${extractCount(plan.rtus_curbs)},`;
-                csv += `${extractCount(plan.penetrations)},`;
-                csv += `"${plan.scale !== 'Not specified' ? plan.scale : '-'}"\n`;
-            });
-        }
-    });
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `drawing_analysis_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    
-    showNotification('CSV exported successfully!', 'success');
-}
+};
 
 // ============================================================================
-// UTILITY FUNCTIONS
+// UTILITY FUNCTIONS (existing from your code)
 // ============================================================================
 
 function extractCount(detectionString) {
@@ -746,6 +862,10 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
+// ============================================================================
+// ADD ADDITIONAL CSS
+// ============================================================================
+
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideIn {
@@ -756,7 +876,123 @@ style.textContent = `
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(400px); opacity: 0; }
     }
+    
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        overflow-y: auto;
+    }
+    
+    .modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-content {
+        background: #fff;
+        border-radius: 12px;
+        max-width: 1000px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #edf2f7;
+    }
+    
+    .modal-close {
+        background: #fc8181;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .modal-close:hover {
+        background: #e53e3e;
+    }
+    
+    /* Spec Details Styles */
+    .spec-details-overview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: #f7fafc;
+        border-radius: 8px;
+    }
+    
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .detail-label {
+        font-size: 0.875rem;
+        color: #718096;
+        margin-bottom: 0.25rem;
+    }
+    
+    .detail-value {
+        font-weight: 600;
+        color: #2d3748;
+    }
+    
+    .details-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+    
+    .detail-section {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+    
+    .detail-section h3 {
+        margin-bottom: 1rem;
+        color: #2d3748;
+        font-size: 1.25rem;
+    }
+    
+    .detail-list {
+        list-style-type: disc;
+        padding-left: 1.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .detail-list li {
+        margin-bottom: 0.75rem;
+        line-height: 1.5;
+    }
+    
+    .empty-notice {
+        color: #a0aec0;
+        font-style: italic;
+    }
 `;
+
 document.head.appendChild(style);
 
-console.log('✅ Drawing Parser v3.0 - Table View loaded!');
+console.log('✅ BuildingSystemsAI - App loaded with shop drawing extraction support!');

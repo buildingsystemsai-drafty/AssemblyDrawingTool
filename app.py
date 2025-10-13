@@ -1,11 +1,18 @@
 from flask import Flask, render_template, request, jsonify
 import os
 import json
+import sys
 import PyPDF2
 import re
 from parsers.text_cleaner import clean_rtf_text, deduplicate_list
 from parsers.assembly_parser import parse_assembly_letter
 from parsers.arch_drawing_parser import parse_architectural_drawing
+from parsers.spec_parser import SpecParser
+from parsers.scope_parser import parse_scope
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
 
 app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
@@ -225,29 +232,36 @@ def parse_files():
         print(f"\n📂 Processing {len(files)} file(s) for category: {category.upper()}")
         print("-" * 60)
         
-        # Handle multiple files for drawings and assemblies
-        if category in ['drawing', 'assembly'] and len(files) > 1:
+        # Handle multiple files for drawings, assemblies, and specs
+        if category in ['drawing', 'assembly', 'spec'] and len(files) > 1:
             results[category] = []
-            
+
             for file in files:
                 if file and file.filename:
                     # Save file
                     filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
                     file.save(filepath)
                     print(f"\n  📥 Saved: {file.filename}")
-                    
-                    # Extract text
-                    text = extract_text_from_pdf(filepath)
-                    
-                    if not text or len(text.strip()) < 50:
-                        print(f"  ⚠️  Warning: Very little text extracted ({len(text)} chars)")
-                    
+
                     # Parse based on category
                     if category == 'drawing':
+                        text = extract_text_from_pdf(filepath)
+                        if not text or len(text.strip()) < 50:
+                            print(f"  ⚠️  Warning: Very little text extracted ({len(text)} chars)")
                         parsed = parse_drawing_file(text, file.filename)
                         results[category].append(parsed)
+
                     elif category == 'assembly':
+                        text = extract_text_from_pdf(filepath)
+                        if not text or len(text.strip()) < 50:
+                            print(f"  ⚠️  Warning: Very little text extracted ({len(text)} chars)")
                         parsed = parse_assembly_letter(text)
+                        parsed['filename'] = file.filename
+                        results[category].append(parsed)
+
+                    elif category == 'spec':
+                        parser = SpecParser(filepath)
+                        parsed = parser.parse()
                         parsed['filename'] = file.filename
                         results[category].append(parsed)
         
@@ -259,24 +273,27 @@ def parse_files():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
                 file.save(filepath)
                 print(f"\n  📥 Saved: {file.filename}")
-                
-                # Extract text
-                text = extract_text_from_pdf(filepath)
-                
-                if not text or len(text.strip()) < 50:
-                    print(f"  ⚠️  Warning: Very little text extracted ({len(text)} chars)")
-                
+
                 # Parse based on category
                 if category == 'scope':
-                    results['scope'] = parse_scope_of_work(text)
-                    
+                    results['scope'] = parse_scope(filepath)
+
                 elif category == 'spec':
-                    results['spec'] = parse_specification(text)
-                    
+                    parser = SpecParser(filepath)
+                    parsed = parser.parse()
+                    parsed['filename'] = file.filename
+                    results['spec'] = [parsed]  # Return as list for consistency with multiple files
+
                 elif category == 'drawing':
+                    text = extract_text_from_pdf(filepath)
+                    if not text or len(text.strip()) < 50:
+                        print(f"  ⚠️  Warning: Very little text extracted ({len(text)} chars)")
                     results['drawing'] = parse_drawing_file(text, file.filename)
-                    
+
                 elif category == 'assembly':
+                    text = extract_text_from_pdf(filepath)
+                    if not text or len(text.strip()) < 50:
+                        print(f"  ⚠️  Warning: Very little text extracted ({len(text)} chars)")
                     parsed = parse_assembly_letter(text)
                     parsed['filename'] = file.filename
                     results['assembly'] = parsed
@@ -312,4 +329,9 @@ if __name__ == '__main__':
     print("🏗️  ASSEMBLY DRAWING ARCHIVE TOOL - V2")
     print("🏗️  Flask server starting...")
     print("🏗️ " + "="*58 + "\n")
-    app.run(debug=True, port=5000)
+    # Use PORT from environment (Railway sets this) or default to 5000
+    port = int(os.environ.get('PORT', 5000))
+    # host='0.0.0.0' makes it accessible on your network
+    # Remove debug=True for production
+    debug_mode = os.environ.get('FLASK_ENV', 'development') != 'production'
+    app.run(host='0.0.0.0', debug=debug_mode, port=port)

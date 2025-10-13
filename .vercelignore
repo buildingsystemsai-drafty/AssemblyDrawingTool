@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Uploads (temporary files)
+static/uploads/*.pdf
+outputs/*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+DEPLOYMENT.md
+FIREBASE_DEPLOYMENT.md
+CLAUDE.md
+
+# Tests
+test_*.py
+.pytest_cache/
+
+# Nginx/Docker
+nginx.conf
+Dockerfile
+.dockerignore
+deploy-cloud-run.sh
