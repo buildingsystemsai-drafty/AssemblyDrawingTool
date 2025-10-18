@@ -129,4 +129,8 @@ Some manufacturer formats may require pattern adjustments
  User authentication
  Project comparison tools
 Made with ❤️ for the roofing industry
+ 
+## Branch: functioning_dxf_generator
+
+This branch (`functioning_dxf_generator`) contains updates that make `generators/dxf_generator.py` functioning for DXF output generation. If you're running from this branch, the DXF generator has been tested locally and should produce valid DXF files for simple assemblies. See `generators/dxf_generator.py` for usage and examples.
 
