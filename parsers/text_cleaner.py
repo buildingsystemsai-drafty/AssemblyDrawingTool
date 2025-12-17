@@ -39,20 +39,20 @@ def deduplicate_list(items):
 
 
 def extract_text_from_file(path):
-    """Try to extract text from a file path. Uses PyPDF2 for PDFs, otherwise reads text file.
+    """Try to extract text from a file path. Uses pdfplumber for PDFs, otherwise reads text file.
     Returns cleaned text string.
     """
     text = ''
     try:
-        # Try PDF extraction
-        from PyPDF2 import PdfReader
-        with open(path, 'rb') as fh:
-            reader = PdfReader(fh)
-            for p in reader.pages:
-                page_text = p.extract_text() or ''
+        # Try PDF extraction with pdfplumber
+        import pdfplumber
+        with pdfplumber.open(path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text() or ''
                 text += page_text + '\n'
     except Exception:
         try:
+            # Fallback to text file reading
             with open(path, 'r', encoding='utf-8', errors='ignore') as fh:
                 text = fh.read()
         except Exception:

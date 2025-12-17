@@ -1,0 +1,49 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Uploads and outputs (will be created in container)
+static/uploads/*.pdf
+outputs/*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+DEPLOYMENT.md
+FIREBASE_DEPLOYMENT.md
+CLAUDE.md
+
+# Tests
+test_*.py
+.pytest_cache/
+.coverage
+
+# Nginx
+nginx.conf
